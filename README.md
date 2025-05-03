@@ -21,17 +21,7 @@ A robust, full-stack application built with **React + Vite + TypeScript** on the
 | Vite     | Node.js  | HTML Canvas  |
 | Tailwind |          | EXPRESS API  |
 
----
 
-## 📸 Screenshots
-
- 
-![Backup Dashboard](https://user-images.githubusercontent.com/yourusername/projectname/screenshots/backup-dashboard.png)
-
-
-![Restore ](https://user-images.githubusercontent.com/yourusername/projectname/screenshots/restore-history.png)
-
----
 
 ## 🧠 System Architecture
 
