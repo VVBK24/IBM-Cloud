@@ -26,7 +26,7 @@ A robust, full-stack application built with **React + Vite + TypeScript** on the
 ## 📸 Screenshots
 
  
-![Backup Dashboard](https://user-images.githubusercontent.com/yourusername/projectname/screenshots/backup-dashboard.png)
+![Backup Dashboard](https://user-images.githubusercontent.com/yourusername/projectname/screenshot/backup-dashboard.png)
 
 
 ![Restore ](https://user-images.githubusercontent.com/yourusername/projectname/screenshots/restore-history.png)

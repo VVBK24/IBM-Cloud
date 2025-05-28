@@ -228,6 +228,26 @@ function App() {
         pauseOnHover
         theme={isDarkMode ? "dark" : "light"}
       />
+      
+      {/* Floating Footer */}
+      <div className={`fixed bottom-4 right-4 flex items-center space-x-2 ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>
+        <span>Made by</span>
+        <a
+          href="https://www.linkedin.com/in/bk-vyasa-varma-899b58252/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-semibold hover:text-blue-500 transition-colors"
+        >
+          VVBK
+        </a>
+        <span>and</span>
+        <button
+          onClick={() => window.open('https://plus.unsplash.com/premium_photo-1664391892863-155a57b0bdfa?fm=jpg&q=60&w=3000&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8Y2xvd258ZW58MHx8MHx8fDA%3D', '_blank')}
+          className="font-semibold hover:text-blue-500 transition-colors"
+        >
+          Team
+        </button>
+      </div>
     </div>
   );
 }

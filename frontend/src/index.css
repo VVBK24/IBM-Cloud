@@ -7,5 +7,45 @@ body {
   @apply antialiased;
 }
 
-@import "tailwindcss";
+/* Custom Checkbox Styles */
+.custom-checkbox {
+  @apply relative inline-flex items-center cursor-pointer;
+}
+
+.custom-checkbox input[type="checkbox"] {
+  @apply sr-only;
+}
+
+.checkbox-mark {
+  @apply w-4 h-4 rounded border transition-all duration-150;
+}
+
+.dark .checkbox-mark {
+  @apply border-gray-500 bg-gray-700;
+}
+
+.light .checkbox-mark {
+  @apply border-gray-300 bg-white;
+}
+
+.custom-checkbox input[type="checkbox"]:checked + .checkbox-mark {
+  @apply border-blue-500 bg-blue-500;
+}
+
+.custom-checkbox input[type="checkbox"]:checked + .checkbox-mark::after {
+  content: '';
+  @apply absolute left-1 top-0 w-1.5 h-2.5 border-white border-r border-b transform rotate-45;
+}
+
+.custom-checkbox:hover .checkbox-mark {
+  @apply border-blue-400;
+}
+
+.dark .custom-checkbox:hover .checkbox-mark {
+  @apply border-blue-400 bg-gray-600;
+}
+
+.light .custom-checkbox:hover .checkbox-mark {
+  @apply border-blue-400 bg-gray-50;
+}
 

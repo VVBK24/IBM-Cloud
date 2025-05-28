@@ -10,15 +10,20 @@ const upload = multer({ storage: multer.memoryStorage() });
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// History tracking
+const fileHistory = [];
 
 // IBM Cloud Object Storage configuration //API keys
+
 const cos = new AWS.S3({
-  ////API key and secret key
-  endpoint: 'https://s3.us-south.cloud-object-storage.appdomain.cloud',
-  apiKeyId: 'your_api_key', 
-  ibmAuthEndpoint: 'https://iam.cloud.ibm.com/identity/token',
-  serviceInstanceId: 'your_service_instance_id',
+  endpoint: process.env.COS_ENDPOINT,
+  apiKeyId: process.env.COS_API_KEY_ID,
+  ibmAuthEndpoint: process.env.COS_AUTH_ENDPOINT,
+  serviceInstanceId: process.env.COS_SERVICE_INSTANCE_ID,
 });
+
 
 const Bucket = 'databackupandstoragesystem';
 
@@ -37,6 +42,16 @@ app.post('/upload', upload.single('file'), async (req, res) => {
     };
 
     await cos.putObject(params).promise();
+    
+    // Record upload in history
+    fileHistory.push({
+      id: Date.now(), // Add unique ID for each history item
+      operation: 'upload',
+      filename: file.originalname,
+      timestamp: new Date().toISOString(),
+      size: file.size
+    });
+    
     res.status(200).send('File uploaded successfully!');
   } catch (error) {
     console.error(error);
@@ -89,6 +104,15 @@ app.delete('/delete/:filename', async (req, res) => {
     };
 
     await cos.deleteObject(params).promise();
+    
+    // Record deletion in history
+    fileHistory.push({
+      id: Date.now(), // Add unique ID for each history item
+      operation: 'delete',
+      filename: filename,
+      timestamp: new Date().toISOString()
+    });
+    
     res.status(200).send('File deleted successfully!');
   } catch (error) {
     console.error(error);
@@ -96,6 +120,48 @@ app.delete('/delete/:filename', async (req, res) => {
   }
 });
 
+// Get file history
+app.get('/history', (req, res) => {
+  try {
+    res.json(fileHistory);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Error retrieving history.');
+  }
+});
+
+// Delete history items
+app.post('/delete-history', (req, res) => {
+   //console.log('Delete history endpoint hit');
+   //console.log('Request body:', req.body);
+  
+  try {
+    const { ids } = req.body;
+    
+    if (!ids || !Array.isArray(ids)) {
+      console.log('Invalid request body:', req.body);
+      return res.status(400).json({ error: 'Invalid request: ids must be an array' });
+    }
+
+    //console.log('Deleting history items with ids:', ids);
+    
+    // Filter out the items to be deleted
+    const newHistory = fileHistory.filter(item => !ids.includes(item.id));
+    
+    // Update the history array
+    fileHistory.length = 0;
+    fileHistory.push(...newHistory);
+
+    //console.log('History updated, remaining items:', fileHistory.length);
+    res.status(200).json({ 
+      message: 'History items deleted successfully', 
+      remainingCount: fileHistory.length 
+    });
+  } catch (error) {
+    console.error('Error in delete history:', error);
+    res.status(500).json({ error: 'Error deleting history items.' });
+  }
+});
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

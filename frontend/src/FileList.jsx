@@ -4,11 +4,14 @@ import { toast } from 'react-toastify';
 
 const FileList = forwardRef(function FileList({ isDarkMode }, ref) {
   const [files, setFiles] = useState([]);
+  const [history, setHistory] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [operationInProgress, setOperationInProgress] = useState(false);
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
   const [filter, setFilter] = useState('');
+  const [showHistory, setShowHistory] = useState(false);
+  const [selectedHistoryItems, setSelectedHistoryItems] = useState([]);
 
   const fetchFiles = async () => {
     setIsLoading(true);
@@ -22,8 +25,18 @@ const FileList = forwardRef(function FileList({ isDarkMode }, ref) {
     }
   };
 
+  const fetchHistory = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/history');
+      setHistory(response.data);
+    } catch (error) {
+      console.error('Error fetching history:', error);
+    }
+  };
+
   useEffect(() => {
     fetchFiles();
+    fetchHistory();
   }, []);
 
   useImperativeHandle(ref, () => ({
@@ -60,18 +73,16 @@ const FileList = forwardRef(function FileList({ isDarkMode }, ref) {
   };
 
   const handleDelete = async (filename) => {
-    if (window.confirm('Are you sure you want to delete this file?')) {
-      setOperationInProgress(true);
-      toast.info('Deleting file...');
-      try {
-        await axios.delete(`http://localhost:5000/delete/${filename}`);
-        toast.success('File deleted successfully!');
-        await fetchFiles();
-      } catch (error) {
-        toast.error('Error deleting file: ' + error.message);
-      } finally {
-        setOperationInProgress(false);
-      }
+    setOperationInProgress(true);
+    toast.info('Deleting file...');
+    try {
+      await axios.delete(`http://localhost:5000/delete/${filename}`);
+      toast.success('File deleted successfully!');
+      await fetchFiles();
+    } catch (error) {
+      toast.error('Error deleting file: ' + error.message);
+    } finally {
+      setOperationInProgress(false);
     }
   };
 
@@ -102,6 +113,48 @@ const FileList = forwardRef(function FileList({ isDarkMode }, ref) {
     }
   };
 
+  const handleHistoryItemSelect = (index) => {
+    setSelectedHistoryItems(prev => {
+      if (prev.includes(index)) {
+        return prev.filter(i => i !== index);
+      } else {
+        return [...prev, index];
+      }
+    });
+  };
+
+  const handleDeleteSelectedHistory = async () => {
+    if (selectedHistoryItems.length === 0) return;
+    
+      setOperationInProgress(true);
+      toast.info('Deleting file...');
+      try {
+        const selectedIds = selectedHistoryItems.map(index => history[index].id);
+        console.log('Sending delete request with ids:', selectedIds);
+
+        const response = await axios({
+          method: 'post',
+          url: 'http://localhost:5000/delete-history',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: { ids: selectedIds }
+        });
+        
+        if (response.status === 200) {
+          // Update local history state
+          const newHistory = history.filter((_, index) => !selectedHistoryItems.includes(index));
+          setHistory(newHistory);
+          setSelectedHistoryItems([]);
+          toast.success('History items deleted successfully');
+        }
+      } catch (error) {
+        console.error('Error deleting history items:', error);
+        const errorMessage = error.response?.data?.error || error.message;
+        toast.error(`Error deleting history items: ${errorMessage}`);
+      }
+  };
+
   const sortedAndFilteredFiles = files
     .filter(file => file.toLowerCase().includes(filter.toLowerCase()))
     .sort((a, b) => {
@@ -111,92 +164,200 @@ const FileList = forwardRef(function FileList({ isDarkMode }, ref) {
       return 0;
     });
 
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleString();
+  };
+
+  const formatFileSize = (bytes) => {
+    if (!bytes) return 'N/A';
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${sizes[i]}`;
+  };
+
   return (
-    <div 
-      className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg rounded-xl p-6 transform transition-all duration-300 hover:shadow-xl`}
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
-    >
-      <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
-        <h2 className={`text-2xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'} mb-4 sm:mb-0`}>
-          Uploaded Files
-        </h2>
-        <div className="flex gap-4">
-          <input
-            type="text"
-            placeholder="Search files..."
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className={`px-4 py-2 rounded-lg ${isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-900'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
-          />
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className={`px-4 py-2 rounded-lg ${isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-900'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
-          >
-            <option value="name">Sort by name</option>
-          </select>
-          <button
-            onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-            className={`px-4 py-2 rounded-lg ${isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-900'} hover:bg-opacity-80 transition-colors`}
-          >
-            {sortOrder === 'asc' ? '↑' : '↓'}
-          </button>
-        </div>
+    <div className="container mx-auto p-4">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">File Management</h1>
+        <button
+          onClick={() => setShowHistory(!showHistory)}
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+        >
+          {showHistory ? 'Show Files' : 'Show History'}
+        </button>
       </div>
 
-      {isLoading ? (
-        <div className="flex justify-center items-center py-8">
-          <div className={`animate-spin rounded-full h-12 w-12 border-b-2 ${isDarkMode ? 'border-white' : 'border-blue-600'}`}></div>
-        </div>
-      ) : sortedAndFilteredFiles.length === 0 ? (
-        <div className={`text-center py-8 ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
-          {filter ? 'No files match your search.' : 'No files uploaded yet. Upload your first file above!'}
+      {showHistory ? (
+        <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow p-6`}>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>File Operation History</h2>
+            {selectedHistoryItems.length > 0 && (
+              <button
+                onClick={handleDeleteSelectedHistory}
+                className={`p-2 rounded-full ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} transition-colors`}
+                title="Delete selected items"
+              >
+                <svg 
+                  className="w-6 h-6 text-red-500" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth="2" 
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" 
+                  />
+                </svg>
+              </button>
+            )}
+          </div>
+          <div className="overflow-x-auto">
+            <table className={`min-w-full ${isDarkMode ? 'text-gray-300' : 'text-gray-900'}`}>
+              <thead>
+                <tr className={isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}>
+                  <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider w-8">
+                    <label className="custom-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={selectedHistoryItems.length === history.length}
+                        onChange={() => {
+                          if (selectedHistoryItems.length === history.length) {
+                            setSelectedHistoryItems([]);
+                          } else {
+                            setSelectedHistoryItems(history.map((_, index) => index));
+                          }
+                        }}
+                      />
+                      <span className="checkbox-mark"></span>
+                    </label>
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider">Operation</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider">Filename</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider">Size</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider">Timestamp</th>
+                </tr>
+              </thead>
+              <tbody className={`divide-y ${isDarkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
+                {history.map((item, index) => (
+                  <tr key={index} className={`${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}`}>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      <label className="custom-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={selectedHistoryItems.includes(index)}
+                          onChange={() => handleHistoryItemSelect(index)}
+                        />
+                        <span className="checkbox-mark"></span>
+                      </label>
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      <span className={`px-2 py-0.5 rounded text-xs ${
+                        item.operation === 'upload' 
+                          ? (isDarkMode ? 'bg-green-900 text-green-200' : 'bg-green-100 text-green-800')
+                          : (isDarkMode ? 'bg-red-900 text-red-200' : 'bg-red-100 text-red-800')
+                      }`}>
+                        {item.operation}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap text-sm">{item.filename}</td>
+                    <td className="px-3 py-2 whitespace-nowrap text-sm">{formatFileSize(item.size)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap text-sm">{formatDate(item.timestamp)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : (
-        <ul className="space-y-4">
-          {sortedAndFilteredFiles.map((file, index) => (
-            <li 
-              key={index} 
-              className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-50 hover:bg-gray-100'} rounded-lg transition duration-200`}
-            >
-              <div className="flex-1 min-w-0">
-                <p className={`${isDarkMode ? 'text-white' : 'text-gray-900'} font-medium truncate`}>{file}</p>
-                <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>Uploaded recently</p>
-              </div>
-              <div className="flex space-x-3 mt-3 sm:mt-0">
-                <button
-                  onClick={() => handleDownload(file)}
-                  disabled={operationInProgress}
-                  className={`px-4 py-2 rounded-lg font-semibold transition duration-200 flex items-center
-                    ${operationInProgress
-                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : 'bg-green-600 text-white hover:bg-green-700'
-                    }`}
+        <div 
+          className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg rounded-xl p-6 transform transition-all duration-300 hover:shadow-xl`}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+        >
+          <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
+            <h2 className={`text-2xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'} mb-4 sm:mb-0`}>
+              Uploaded Files
+            </h2>
+            <div className="flex gap-4">
+              <input
+                type="text"
+                placeholder="Search files..."
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className={`px-4 py-2 rounded-lg ${isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-900'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+              />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className={`px-4 py-2 rounded-lg ${isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-900'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+              >
+                <option value="name">Sort by name</option>
+              </select>
+              <button
+                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                className={`px-4 py-2 rounded-lg ${isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-900'} hover:bg-opacity-80 transition-colors`}
+              >
+                {sortOrder === 'asc' ? '↑' : '↓'}
+              </button>
+            </div>
+          </div>
+
+          {isLoading ? (
+            <div className="flex justify-center items-center py-8">
+              <div className={`animate-spin rounded-full h-12 w-12 border-b-2 ${isDarkMode ? 'border-white' : 'border-blue-600'}`}></div>
+            </div>
+          ) : sortedAndFilteredFiles.length === 0 ? (
+            <div className={`text-center py-8 ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+              {filter ? 'No files match your search.' : 'No files uploaded yet. Upload your first file above!'}
+            </div>
+          ) : (
+            <ul className="space-y-4">
+              {sortedAndFilteredFiles.map((file, index) => (
+                <li 
+                  key={index} 
+                  className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-50 hover:bg-gray-100'} rounded-lg transition duration-200`}
                 >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  Download
-                </button>
-                <button
-                  onClick={() => handleDelete(file)}
-                  disabled={operationInProgress}
-                  className={`px-4 py-2 rounded-lg font-semibold transition duration-200 flex items-center
-                    ${operationInProgress
-                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : 'bg-red-600 text-white hover:bg-red-700'
-                    }`}
-                >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  Delete
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+                  <div className="flex-1 min-w-0">
+                    <p className={`${isDarkMode ? 'text-white' : 'text-gray-900'} font-medium truncate`}>{file}</p>
+                    <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>Uploaded recently</p>
+                  </div>
+                  <div className="flex space-x-3 mt-3 sm:mt-0">
+                    <button
+                      onClick={() => handleDownload(file)}
+                      disabled={operationInProgress}
+                      className={`px-4 py-2 rounded-lg font-semibold transition duration-200 flex items-center
+                        ${operationInProgress
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          : 'bg-green-600 text-white hover:bg-green-700'
+                        }`}
+                    >
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      Download
+                    </button>
+                    <button
+                      onClick={() => handleDelete(file)}
+                      disabled={operationInProgress}
+                      className={`px-4 py-2 rounded-lg font-semibold transition duration-200 flex items-center
+                        ${operationInProgress
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          : 'bg-red-600 text-white hover:bg-red-700'
+                        }`}
+                    >
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      Delete
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
     </div>
   );
