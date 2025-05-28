@@ -27,10 +27,10 @@ A robust, full-stack application built with **React + Vite + TypeScript** on the
 ## 📸 Screenshots
 
  
-![Backup Dashboard](https://user-images.githubusercontent.com/yourusername/projectname/screenshot/backup-dashboard.png)
+![Backup Dashboard](https://github.com/VVBK24/IBM-Cloud/blob/main/screenshot/Screenshot%202025-05-28%20154346.png)
 
 
-![Restore ](https://user-images.githubusercontent.com/yourusername/projectname/screenshots/restore-history.png)
+![History ](https://github.com/VVBK24/IBM-Cloud/blob/main/screenshot/Screenshot%202025-05-28%20154408.png)
 
 ---
 
