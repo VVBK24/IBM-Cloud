@@ -107,5 +107,3 @@ git clone https://github.com/yourusername/Data-Backup-and-Recovery-System.git
 
 cd Data-Backup-and-Recovery-System
 ```
----
->>>>>>> e1c79a3e7dc285e8d668323dda67678225251df2
